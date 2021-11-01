@@ -12,9 +12,11 @@
 #
 
 import os
-
+import config
 
 def execute(cmd):
     stream = os.popen(cmd)
     output = stream.read()
+    if config.app['debug'] == 1:
+        print(output)
     return output

@@ -8,24 +8,16 @@ class d3vskyman {
 
     private encryptionHandler $_encryption;
     private socketHandler $_socket;
-    private string $password;
 
     public function __construct($socket_host, $socket_port, $socket_password, $encryption_iv, $encryption_key){
-        $this->_socket      = new socketHandler($socket_host, $socket_port);
         $this->_encryption  = new encryptionHandler($encryption_iv, $encryption_key);
-        $this->password     = $socket_password;
+        $this->_socket      = new socketHandler($socket_host, $socket_port, $socket_password, $this->_encryption);
     }
 
     public function sendCommand($command): array {
 
-        $result = $this->_socket->sendCommand($this->_encryption->encrypt('AUTH '.$this->password));
-        if($result['status'] == 'success') {
-            $result = $this->_socket->sendCommand($this->_encryption->encrypt($command));
-            if ($result['status'] == 'success') {
-                $result['message'] = $this->_encryption->decrypt($result['message']);
-            }
-        }
-        return $result;
+        return $this->_socket->sendCommand($command);
+
     }
 }
 
@@ -34,10 +26,16 @@ class socketHandler {
 
     private string $host;
     private string $port;
+    private string $password;
+    private int $buffer;
+    private encryptionHandler $_encryption;
 
-    public function __construct($socket_host, $socket_port){
+    public function __construct($socket_host, $socket_port, $socket_password, &$encryptionHandler){
         $this->host         = $socket_host;
         $this->port         = $socket_port;
+        $this->password     = $socket_password;
+        $this->_encryption  = $encryptionHandler;
+        $this->buffer       = 26214400;
     }
 
     public function sendCommand($command): array {
@@ -45,15 +43,36 @@ class socketHandler {
         if($socket) {
             if(socket_connect($socket, $this->host, $this->port)) {
 
-                if(socket_write($socket, $command, strlen($command))) {
-                    $answer = array('status' => 'success',
-                        'message' => socket_read($socket, 1024)
-                    );
+                $auth_command = $this->_encryption->encrypt('AUTH '.$this->password.';');
+                if(socket_write($socket, $auth_command, strlen($auth_command))) {
+
+                    sleep(1); // Delay to allow for auth first
+                    $command = $this->_encryption->encrypt($command);
+                    if (socket_write($socket, $command, strlen($command))) {
+
+                        $enc_payload = socket_read($socket, $this->buffer);
+                        $payload = $this->_encryption->decrypt($enc_payload);
+
+                        if(empty(trim($payload))) { $payload = 'No result or result to large to decode.'; }
+
+                        $answer = array('status' => 'success',
+                            'message' => 'Command successfully sent to server.',
+                            'result' => $payload,
+                            'enc_result' => $enc_payload
+                        );
+
+                    } else {
+                        $answer = array('status' => 'failed',
+                            'message' => 'Could not send data to server.'
+                        );
+                    }
+
                 } else {
                     $answer = array('status' => 'failed',
-                        'message' => 'Could not send data to server.'
+                        'message' => 'Could not auth with server.'
                     );
                 }
+
             } else {
                 $answer = array('status' => 'failed',
                     'message' => 'Could not connect to server.'

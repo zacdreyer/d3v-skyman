@@ -1,8 +1,9 @@
 #
 #  @author     Zac Dreyer [D3V.Digital]
 #  @license    LICENSE
+#  @version    2021.10
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -34,7 +35,7 @@ app_path = os.path.dirname(os.path.abspath(__file__))
 import config
 
 for module in config.module['active']:
-    exec("from modules import " + module)
+    exec('from modules import ' + module)
 
 
 # [END] Custom Libraries #
@@ -61,11 +62,14 @@ class ClientCommunication:
     # PKCS7 Padding
     def pad(self, data):
         return data + chr(self.block_size - len(data) % self.block_size) * (
-                    self.block_size - len(data) % self.block_size)
+                self.block_size - len(data) % self.block_size)
 
     def unpad(self, data):
-        strlen = len(data) - self.block_size
-        return data[self.block_size:strlen:1]
+        data = data[self.block_size:]
+        last = data.rfind(b';')
+        data = data[:last]
+        return data
+
 
 # [END] Communications Class #
 
@@ -78,30 +82,38 @@ class ClientThread(threading.Thread):
         self.clientsocket = threadclientsocket
 
         if config.app['debug'] == 1:
-            print("New connection: ", self.clientaddress[0])
+            print('New connection: ', self.clientaddress[0])
+
+    def sendDataToSocket(self, data):
+        totalsent = 0
+        while totalsent < len(data):
+            sent = self.clientsocket.send(data[totalsent:])
+            if sent == 0:
+                raise RuntimeError('Socket connection broken.')
+            totalsent = totalsent + sent
 
     def run(self):
         comms = ClientCommunication(config.encryption['key'], config.encryption['iv'])
 
         if self.clientaddress[0] in config.daemon['whitelist']:
             if config.app['debug'] == 1:
-                print("Connection accepted from: ", self.clientaddress[0])
-                print("Waiting for client command...")
-            self.clientsocket.send(comms.encrypt(
+                print('Connection accepted from: ', self.clientaddress[0])
+                print('Waiting for client command...')
+            self.sendDataToSocket(comms.encrypt(
                 'Connected to ' + config.app['name'] + '. Use AUTH to authenticate with service. Use EXIT to close your'
-                                                       ' connection.\r\n'))
+                                                       ' connection.') + '\r\n'.encode('utf-8'))
             authenticated = 0
             try:
                 while True:
-                    data = self.clientsocket.recv(2048)
-                    command = data.decode('utf8')
+                    data = self.clientsocket.recv(26214400)
+                    command = data.decode('utf-8')
                     enc_command = command
                     command = comms.decrypt(command)
                     command = command.strip()
 
                     if config.app['debug'] == 1:
-                        print("Encrypted command received: ", enc_command)
-                        print("Command received: ", command)
+                        print('Encrypted command received: ', enc_command)
+                        print('Command received: ', command)
 
                     # EXIT Command
                     if command == 'EXIT' or command == '':
@@ -109,19 +121,20 @@ class ClientThread(threading.Thread):
                         break
 
                     # AUTH Command
-                    if re.findall(r"^AUTH\b", command):
+                    if re.findall(r'^AUTH\b', command):
                         password = command.split()
                         password = password[1].strip()
                         if password == config.daemon['password']:
                             authenticated = 1
-                            self.clientsocket.send(comms.encrypt('Authenticated successfully. \r\n'))
+                            self.sendDataToSocket(
+                                comms.encrypt('Authenticated successfully.') + '\r\n'.encode('utf-8'))
                             if config.app['debug'] == 1:
-                                print("Client ", self.clientaddress[0], " successfully authenticated.")
+                                print('Client ', self.clientaddress[0], ' successfully authenticated.')
                         else:
                             authenticated = 0
-                            self.clientsocket.send(comms.encrypt('Authentication failed. \r\n'))
+                            self.sendDataToSocket(comms.encrypt('Authentication failed.') + '\r\n'.encode('utf-8'))
                             if config.app['debug'] == 1:
-                                print("Client ", self.clientaddress[0], " authentication failed.")
+                                print('Client ', self.clientaddress[0], ' authentication failed.')
                             self.clientsocket.close()
                             break
 
@@ -129,42 +142,45 @@ class ClientThread(threading.Thread):
                     if authenticated == 1:
 
                         # [START] CLI Command
-                        if re.findall(r"^CLI\b", command):
-                            command = re.sub(r"^CLI\b", "", command)
+                        if re.findall(r'^CLI\b', command):
+                            command = re.sub(r'^CLI\b', '', command)
                             command = command.strip()
-                            self.clientsocket.send(comms.encrypt(cli.execute(command)))
+                            self.sendDataToSocket(comms.encrypt(cli.execute(command)) + '\r\n'.encode('utf-8'))
                         # [END] CLI Command
 
                         # [START] APP Commands
-                        if re.findall(r"^APP\b", command):
-                            command = re.sub(r"^APP\b", "", command)
+                        if re.findall(r'^APP\b', command):
+                            command = re.sub(r'^APP\b', '', command)
                             command = command.strip()
 
                             # APP stop
                             if command == 'stop':
                                 if app.stop():
-                                    self.clientsocket.send(comms.encrypt("Service stopped, awaiting restart."))
+                                    self.sendDataToSocket(
+                                        comms.encrypt('Service stopped, awaiting restart.') + '\r\n'.
+                                        encode('utf-8'))
 
                             # APP update
                             if command == 'update':
                                 if app.update(app_path):
-                                    self.clientsocket.send(comms.encrypt("Service updated and stopped, awaiting "
-                                                                         "restart."))
+                                    self.sendDataToSocket(comms.encrypt('Service updated and stopped, awaiting '
+                                                                           'restart. \r\n'))
                         # [END] APP Commands
 
                     elif command != 'EXIT':
-                        self.clientsocket.send(comms.encrypt('Please authenticate using AUTH. \r\n'))
+                        self.sendDataToSocket(
+                            comms.encrypt('Please authenticate using AUTH.') + '\r\n'.encode('utf-8'))
             finally:
                 self.clientsocket.close()
         else:
             if config.app['debug'] == 1:
-                print("Unauthorised connection attempted from ", self.clientaddress[0], ", disconnecting...")
+                print('Unauthorised connection attempted from ', self.clientaddress[0], ', disconnecting...')
 
-            self.clientsocket.send(comms.encrypt('Unauthorised connection attempted.'))
+            self.sendDataToSocket(comms.encrypt('Unauthorised connection attempted.') + '\r\n'.encode('utf-8'))
             self.clientsocket.close()
 
         if config.app['debug'] == 1:
-            print("Client at ", self.clientaddress[0], " disconnected...")
+            print('Client at ', self.clientaddress[0], ' disconnected...')
 
 
 # [END] Multithread Connections Class #
@@ -175,8 +191,8 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 server.bind(('', config.daemon['port']))
 if config.app['debug'] == 1:
-    print("Server started on port " + str(config.daemon['port']))
-    print("Waiting for connection...")
+    print('Server started on port ' + str(config.daemon['port']))
+    print('Waiting for connection...')
 while True:
     server.listen(1)
     clientsocket, clientaddress = server.accept()

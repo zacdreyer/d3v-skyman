@@ -14,4 +14,4 @@ $d3vskyman = new d3vskyman(
     $_CONFIG->ENCRYPTION->KEY
 );
 
-print_r($d3vskyman->sendCommand('CLI ls -la'));
+print_r($d3vskyman->sendCommand('CLI cd /var/www/html;ls -la;')); // All commands must end in a ;
