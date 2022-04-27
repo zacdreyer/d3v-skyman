@@ -19,7 +19,7 @@ app = {
 
 # Module Configuration
 module = {
-    "active": {  # Comma seperated actived dev-skyman modules
+    "active": {  # Comma seperated activated dev-skyman modules
         "app",
         "cli"
     }
