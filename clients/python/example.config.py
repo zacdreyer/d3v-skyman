@@ -1,0 +1,5 @@
+HOST = "127.0.0.1"
+PORT = 25120
+PASSWORD = "change-me"
+IV = "0123456789abcdef"
+KEY = "0123456789abcdef0123456789abcdef"

@@ -1,20 +1,51 @@
-#macOS
+# macOS
+.DS_Store
 *.DS_Store
 Icon?
 
-#GIT
+# Git
 *.orig
 *.patch
 
-#IDEs
+# Editors / IDEs
 .com.greenworldsoft.syncfolderspro
-venv
-.vscode
+.vscode/
+.vscode/settings.json
+.vscode-test/
 .netbeans.xml
-.idea
-.gradle
+.idea/
+.gradle/
+*.code-workspace
 
-#General
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# PHP
+vendor/
+composer.lock
+.phpunit.result.cache
+
+# .NET / C#
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.db
+
+# General
 .dropbox
 .Trash-*
 .trash
@@ -22,8 +53,12 @@ venv
 *.zip
 *.gz
 *.tar.gz
+*.tgz
 
-#App
+# Application config and runtime files
 **/config.py
-**/loader.sh
 **/config.php
+**/config.cs
+**/loader.sh
+.env
+.env.*

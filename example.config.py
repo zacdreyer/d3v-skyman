@@ -1,5 +1,5 @@
 #
-#  @author     Zac Dreyer [D3V.Digital]
+#  @author     Zac Dreyer
 #  @license    LICENSE
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -14,7 +14,7 @@
 # APP Configuration
 app = {
     "name": '',
-    "debug": 1  # Switch to 0 on production deployments
+    "debug": 0  # Switch to 1 for local debugging only
 }
 
 # Module Configuration
@@ -34,9 +34,16 @@ encryption = {
 
 # Daemon Configuration
 daemon = {
+    'host': '0.0.0.0',
     'port': 25120,  # Port must be 0-65535.
     'password': '',  # Should be 18 characters minimum
-    'whitelist': {  # Comma seperated whitelisted IPs which are allowed to access dev-skyman
+    'whitelist': {  # Comma separated whitelisted IPs which are allowed to access dev-skyman
         '127.0.0.1'
-    }
+    },
+    'tls': {
+        'certfile': '',
+        'keyfile': ''
+    },
+    'health_host': '127.0.0.1',
+    'health_port': 25121
 }

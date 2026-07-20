@@ -1,5 +1,5 @@
 #
-#  @author     Zac Dreyer [D3V.Digital]
+#  @author     Zac Dreyer
 #  @license    LICENSE
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -12,17 +12,31 @@
 #
 
 
+import os
+import shlex
+
+from config_loader import load_config
 from modules import cli
+
+config = load_config()
 
 
 def stop():
-    result = cli.execute("ps -ef | grep 'd3vskyman.py' | awk '{print $2}'")
-    result = result.split('\n')
-    cli.execute("kill -9 " + result[0])
+    result = cli.execute("ps -ef | grep '[d]3vskyman.py' | awk '{print $2}'")
+    pids = [line.strip() for line in result.splitlines() if line.strip().isdigit()]
+    if not pids:
+        return False
+
+    for pid in pids:
+        cli.execute("kill -TERM " + pid)
     return True
 
 
 def update(path):
-    result = cli.execute('cd ' + path + ';git pull -v;')
+    safe_path = os.path.realpath(path)
+    if not safe_path or not os.path.isdir(safe_path):
+        raise ValueError('Invalid update path')
+
+    cli.execute('cd ' + shlex.quote(safe_path) + ';git pull -v;')
     stop()
     return True

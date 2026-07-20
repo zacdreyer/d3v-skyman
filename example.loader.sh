@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
-#
-#
-#  @author     Zac Dreyer [D3V.Digital]
-#  @license    LICENSE
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
+set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$ROOT_DIR/.venv"
+PYTHON_BIN="$VENV_DIR/bin/python"
 
-PROCESS_NUM=$(ps -ef | grep "d3vskyman.py" | grep -v "grep" | wc -l)
-if [ $PROCESS_NUM -eq 0 ];
-then
-	echo "Starting process d3vskyman"
-	python /path/to/d3v-skyman/d3vskyman.py 2> /dev/null &
-else
-     echo "d3vskyman already active"
+if [ ! -x "$PYTHON_BIN" ]; then
+  echo "Virtualenv not found at $VENV_DIR" >&2
+  exit 1
 fi
+
+if ! "$PYTHON_BIN" "$ROOT_DIR/healthcheck.py" --host 127.0.0.1 --port 25121 >/dev/null 2>&1; then
+  echo "Starting d3v-skyman"
+  nohup "$PYTHON_BIN" "$ROOT_DIR/d3vskyman.py" > "$ROOT_DIR/d3vskyman.log" 2>&1 &
+fi
+
+echo "d3v-skyman is running or was started successfully"
